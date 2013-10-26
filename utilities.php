@@ -9,7 +9,8 @@
 
 // Disable to turn off debug logging
 define("ENABLE_DEBUG_LOG", true);
-define("DEBUG_LOG_PATH", "/var/tmp/wordpress-cas-client-debug.log");
+define("DEBUG_LOG_PATH", "/vagrant/wordpress-cas-client-debug.log");
+#define("DEBUG_LOG_PATH", "/var/tmp/wordpress-cas-client-debug.log");
 
 /**
  * @param $haystack
