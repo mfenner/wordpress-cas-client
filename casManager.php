@@ -13,10 +13,9 @@ spl_autoload_register('class_autoloader');
 class casManager
 {
   private $cas_configured = true;
-  private $ldapManager;
   private $options;
 
-  function __construct($options, $ldapManager = null)
+  function __construct($options)
   {
     debug_log("(casManager) Initializing casManager (constructor)");
     debug_log("(casManager) options: ".print_r($options, true));
@@ -29,19 +28,6 @@ class casManager
 
     $this->options = $options;
     $this->ConfigureCasClient($options);
-
-    if(isset($ldapManager) && $ldapManager != null)
-    {
-      debug_log("(casManager) ldapManager was passed in, using that.");
-      $this->ldapManager = $ldapManager;
-    }
-    else
-    {
-      debug_log("(casManager) no ldapManager provided. Instantiating a new one.");
-//      debug_log("options: " . print_r($options, true));
-      $this->ldapManager = new ldapManager($options['ldapuser'], $options['ldappassword'], $options['ldapuri']);
-    }
-    debug_log("(casManager) ldapManager created: ldapManager->Uri == '".$this->ldapManager->Uri."'");
   }
 
   /*
@@ -61,35 +47,6 @@ class casManager
 
       if ( $user = get_user_by( 'login', phpCAS::getUser() )){ // user already exists
         debug_log("(casManager) correct login");
-        // Update user information from ldap
-        if ($this->options['useldap'] == 'yes' && function_exists('ldap_connect') ) {
-
-//						$existingUser = get_ldap_user(phpCAS::getUser());
-          $existingUser = $this->ldapManager->GetUser(phpCAS::getUser(), $this->options["ldapbasedn"]);
-          //var_dump($existingUser);
-          if($existingUser)
-          {
-
-            $userdata = $existingUser->GetData();
-            $userdata["ID"] = $user->ID;
-
-            unset($userdata['role']);//Remove role from userdata
-
-            $userID = wp_update_user( $userdata );
-
-            if ( is_wp_error( $userID ) ) {
-              //error_log("Update user failing");
-              $error_string = $userID->get_error_message();
-              //error_log($error_string);
-              echo '<div id="message" class="error"><p>' . $error_string . '</p></div>';
-
-            }
-          }
-          else
-          {
-            error_log("existing user returned false");
-          }
-        }
         $udata = get_userdata($user->ID);
 
         $userExists = is_user_member_of_blog( $user->ID, $blog_id);
@@ -131,32 +88,15 @@ class casManager
 
   private function NoWordpressUser($newuserid)
   {
-    $userdata = "";
-    //error_log("\nThis is true:".$wpcasldap_use_options['useldap']);
-    //error_log("\nThis is true:".function_exists("ldap_connect"));
-    if ($this->options['useldap'] == 'yes' && function_exists('ldap_connect') ) {
-      //if ($wpcasldap_use_options['useldap'] == 'yes' ) {
-      $newuser = $this->ldapManager->GetUser($newuserid, $this->options["ldapbasedn"]);
+    $userdata = array(
+      'user_login' => $newuserid,
+      'user_password' => substr( md5( uniqid( microtime( ))), 0, 8 ),
+      'user_email' => $newuserid.'@'.$this->options['email_suffix'],
+      'role' => $this->options['userrole'],
+    );
 
-      //echo "<pre>";print_r($newuser);echo "</pre>";
-      //error_log("new user value :".$newuserid);
-      //exit();
-      if($newuser)
-        $userdata = $newuser->GetData();
-      else
-        echo "User not found in LDAP";
-      //echo "<br/> userdata returned :".print_r($userdata,true)."<br/> ";
-    } else {
-      $userdata = array(
-        'user_login' => $newuserid,
-        'user_password' => substr( md5( uniqid( microtime( ))), 0, 8 ),
-        'user_email' => $newuserid.'@'.$this->options['email_suffix'],
-        'role' => $this->options['userrole'],
-      );
-    }
     if (!function_exists('wp_insert_user'))
       include_once ( ABSPATH . WPINC . '/registration.php');
-
 
     if($userdata)
     {
